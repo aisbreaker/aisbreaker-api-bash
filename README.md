@@ -1,23 +1,38 @@
 # aisbreaker-api-bash
 
+
+Installation
+------------
+
+TO BE WRITTEN (download with curl)
+
+
 Usage
 -----
 
+Get a detailled description:
 ```
-# minimal usage
-echo "What is Nodejs?" | ./aisbreaker.sh '--props={serviceId="chat:openai"}'
+./aisbreaker.sh --help
 ```
 
 
+Minimal usage:
 ```
-# typical usage    
+echo "What is Nodejs?" | ./aisbreaker.sh '--props={"serviceId":"chat:openai.com"}'
+```
+
+Typical usage:
+```
 echo "What is Nodejs?" | ./aisbreaker.sh \
   --input=text \
   --output=json \
   --session=./ais-session-1 \
-  '--props={serviceId="chat:openai"}' \
+  '--props={"serviceId":"chat:openai.com"}' \
   --url=https://api.demo.aisbreaker.org 
 ```
+
+Maximal usage:
+TO BE WRITTEN
 
 
 Features for Later

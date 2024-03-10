@@ -4,14 +4,14 @@
 VERSION="0.1.0"
 
 # defaults
-INPUT_FORMAT="json"
+INPUT_FORMAT="text"
 OUTPUT_FORMAT="json"
 DEFAULT_AISBREAKER_SERVER_URL="https://api.demo.aisbreaker.org"
 AISBREAKER_SERVER_URL="${DEFAULT_AISBREAKER_SERVER_URL}"
 
 # function to display usage
 function usage() {
-  echo "aisbreakter.sh - commandline AI accessor"
+  echo "aisbreakter.sh - commandline AI accessor (version: $VERSION)"
   echo ""
   echo "Usage: $0 [options]"
   echo "Receives request from stdin and prints the response to stdout."
@@ -45,6 +45,15 @@ function usage() {
   echo "                           Default: $AISBREAKER_SERVER_URL"
   echo "  -v, --verbose            Enable verbose mode"
   echo "  -V, --version            Print script version"
+
+  # check that tool curl is installed
+  if ! [ -x "$(command -v curl)" ]; then
+    echo 'Error: curl is not installed but required.' >&2
+  fi
+  # check that tool jq is installed
+  if ! [ -x "$(command -v jqXXX)" ]; then
+    echo 'Error: jq is not installed but required.' >&2
+  fi
   exit 1
 }
 
@@ -181,8 +190,20 @@ if [[ -z $AISBREAKER_SERVER_URL ]]; then
   exit 1
 fi
 
+# check service properties
+if [[ -z $PROPS_JSON_STRING ]]; then
+  echo "Error: Service properties J(-p, --props) required" >&2
+  exit 1
+fi
+if ! jq -e . >/dev/null 2>&1 <<<"$PROPS_JSON_STRING"; then
+  echo "Error: Service properties string is not valid JSON: $PROPS_JSON_STRING" >&2
+  exit 1
+fi
+
+#
 # output settings
 # if verbose
+#
 if [[ $VERBOSE == 1 ]]; then
   if [[ -n $INPUT_FORMAT ]]; then
     echo "Input format is set to $INPUT_FORMAT" >&2
@@ -214,3 +235,136 @@ if ! [ -x "$(command -v jq)" ]; then
   echo 'Error: jq is not installed but required.' >&2
   exit 1
 fi
+
+#
+# read and check input
+#
+if [[ $INPUT_FORMAT == "json" ]]; then
+  #
+  # read and check JSON input from stdin
+  #
+
+  # read input from stdin
+  INPUT_JSON=$(cat)
+  if [[ $VERBOSE == 1 ]]; then
+    echo "Input JSON: $INPUT_JSON" >&2
+  fi
+  # check input JSON
+  if [[ -z $INPUT_JSON ]]; then
+    echo "Error: Input JSON is empty" >&2
+    exit 1
+  fi
+  # check input JSON
+  if ! jq -e . >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON is not valid" >&2
+    exit 1
+  fi
+  # check input JSON
+  if ! jq -e .prompt >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON does not contain prompt" >&2
+    exit 1
+  fi
+  # check input JSON
+  if ! jq -e .serviceId >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON does not contain serviceId" >&2
+    exit 1
+  fi
+  # check input JSON
+  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON does not contain properties" >&2
+    exit 1
+  fi
+  # check input JSON
+  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON does not contain properties" >&2
+    exit 1
+  fi
+  # check input JSON
+  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON does not contain properties" >&2
+    exit 1
+  fi
+  # check input JSON
+  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON does not contain properties" >&2
+    exit 1
+  fi
+  # check input JSON
+  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON does not contain properties" >&2
+    exit 1
+  fi
+elif [[ $INPUT_FORMAT == "text" ]]; then
+  #
+  # read input from stdin and convert to JSON
+  #
+
+  # read input from stdin
+  INPUT_TEXT=$(cat)
+  if [[ $VERBOSE == 1 ]]; then
+    echo "Input TEXT: $INPUT_TEXT" >&2
+  fi
+
+  # create input JSON
+  INPUT_JSON='{
+    "inputs": [ {
+      "text": {
+        "role": "user",
+        "content": ""
+      }
+    } ]
+  }'
+  INPUT_JSON=$(jq --arg content "$INPUT_TEXT" '.inputs[0].text.content = $content' <<<"$INPUT_JSON")
+  echo "Input TEXT as JSON: $INPUT_JSON" >&2
+fi
+# tune inputs: never use streaming
+INPUT_JSON=$(jq '.stream = false' <<<"$INPUT_JSON")
+# add converstation state if available
+# TODO
+
+#
+# action
+#
+
+# put all argument together to build a request
+REQUEST='{
+  "service": { },
+  "request": { }
+}'
+# create request JSON
+REQUEST=$(jq --argjson serviceProps "$PROPS_JSON_STRING" '.service = $serviceProps' <<<"$REQUEST")
+REQUEST=$(jq --argjson inputs "$INPUT_JSON" '.request = $inputs' <<<"$REQUEST")
+echo "Request with: $REQUEST" >&2
+
+curl "${AISBREAKER_SERVER_URL}/api/v1/process" \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -H "//Authorization: Bearer [YOUR_API_KEY]" \
+        -d "$REQUEST"
+
+
+
+exit 1
+
+curl "${URL}/api/v1/process" \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -H "//Authorization: Bearer [YOUR_API_KEY]" \
+        -d '{
+
+  "service": {
+    "serviceId": "chat:dummy",
+    "//serviceId": "chat:openai.com",
+    "///serviceId": "chat:huggingface.co/microsoft/DialoGPT-large",
+    "////serviceId": "chat:huggingface.co/YOUR-HF-ACCOUNT/YOUR-HF-MODEL"
+  },
+
+  "request": {
+    "inputs": [ {
+      "text": {
+        "role": "user",
+        "content": "What is an AI? Please explain it to me."
+      }
+    } ]
+  }
+}'
