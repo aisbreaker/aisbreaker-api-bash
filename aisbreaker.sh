@@ -4,12 +4,23 @@
 VERSION="0.1.0"
 
 # defaults
-INPUT_FORMAT="text"
-OUTPUT_FORMAT="json"
+DEFAULT_INPUT_FORMAT="text"
+DEFAULT_OUTPUT_FORMAT="text"
+DEFAULT_SERVICE_ID="chat:dummy"
+DEFAULT_PROPS_JSON_STRING="{\"serviceId\": \"${DEFAULT_SERVICE_ID}\"}"
 DEFAULT_AISBREAKER_SERVER_URL="https://api.demo.aisbreaker.org"
-AISBREAKER_SERVER_URL="${DEFAULT_AISBREAKER_SERVER_URL}"
+DEFAULT_CURL_OPTS=""
 
-# function to display usage
+# initialize variables
+INPUT_FORMAT="${DEFAULT_INPUT_FORMAT}"
+OUTPUT_FORMAT="${DEFAULT_OUTPUT_FORMAT}"
+SERVICE_ID="${DEFAULT_SERVICE_ID}"
+PROPS_JSON_STRING="${DEFAULT_PROPS_JSON_STRING}"
+AISBREAKER_SERVER_URL="${DEFAULT_AISBREAKER_SERVER_URL}"
+CURL_OPTS="${DEFAULT_CURL_OPTS}"
+
+
+# function to display usage/help message
 function usage() {
   echo "aisbreakter.sh - commandline AI accessor (version: $VERSION)"
   echo ""
@@ -28,21 +39,31 @@ function usage() {
   echo "  -i, --input=[text|json]  Specify the input format (text or json),"
   echo "                           text means a user text prompt,"
   echo "                           json means AIsBreaker request (https://aisbreaker.org/docs/request)."
-  echo "                           Default: text"
+  echo "                           Default: ${DEFAULT_INPUT_FORMAT}"
   echo "  -o, --output=[text|json] Specify the output format (text or json): Default: json"
   echo "                           text means a system text response,"
   echo "                           json means AIsBreaker response (https://aisbreaker.org/docs/response)."
-  echo "                           Default: json"
+  echo "                           Default: ${DEFAULT_OUTPUT_FORMAT}"
   echo "  -p, --props=<PROPS-JSON-STRING>"
   echo "                           Specify the AIsBreaker service properties"
   echo "                           as json string (https://aisbreaker.org/docs/service-properties)."
   echo "                           Example: '--props={\"serviceId\": \"chat:openai.com\"}'"
-  echo "                           Required. No default."
-  echo "  -s, --session=<SESSION-STATE-FILE>"
-  echo "                           Specify the session state file. Default: no session state"
+  echo "                           Default: props with serviceId only as specified with --service."
+  echo "  -s, --service=<SERVICE-ID>"
+  echo "                           Specify the serviceId. Overwrites serviceId in service properties."
+  echo "                           Full list: (https://aisbreaker.org/docs/services)"
+  echo "                           Example: chat:openai.com"
+  echo "                           Default: chat:dummy"
+  echo "  -S, --state=<CONVERSATION-STATE-FILE>"
+  echo "                           Specify the session/conversation state file."
+  echo "                           Default: no state"
   echo "  -u, --url=<AISBREAKER-SERVER-URL>"
   echo "                           Specify the AIsBreaker server URL."
   echo "                           Default: $AISBREAKER_SERVER_URL"
+  echo "  -c, --curlopts=<CURL-OPTIONS>"
+  echo "                           Specify additional curl options."
+  echo "                           The --silent should always be included."
+  echo "                           Default: ${DEFAULT_CURL_OPTS}"
   echo "  -v, --verbose            Enable verbose mode"
   echo "  -V, --version            Print script version"
 
@@ -51,7 +72,7 @@ function usage() {
     echo 'Error: curl is not installed but required.' >&2
   fi
   # check that tool jq is installed
-  if ! [ -x "$(command -v jqXXX)" ]; then
+  if ! [ -x "$(command -v jq)" ]; then
     echo 'Error: jq is not installed but required.' >&2
   fi
   exit 1
@@ -115,13 +136,39 @@ while (( "$#" )); do
         exit 1
       fi
       ;;
-    --session=*|-s=*)
-      SESSION_STATE_FILE="${1#*=}"
+    --curlopts=*|-c=*)
+      CURL_OPTS="${1#*=}"
       shift
       ;;
-    --session|-s)
+    --curlopts|-c)
       if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-        SESSION_STATE_FILE=$2
+        CURL_OPTS=$2
+        shift 2
+      else
+        echo "Error: Argument for $1 is missing" >&2
+        exit 1
+      fi
+      ;;
+    --service=*|-s=*)
+      SERVICE_ID="${1#*=}"
+      shift
+      ;;
+    --service|-s)
+      if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+        SERVICE_ID=$2
+        shift 2
+      else
+        echo "Error: Argument for $1 is missing" >&2
+        exit 1
+      fi
+      ;;
+    --state=*|-S=*)
+      CONVERSATION_STATE_FILE="${1#*=}"
+      shift
+      ;;
+    --state|-S)
+      if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+        CONVERSATION_STATE_FILE=$2
         shift 2
       else
         echo "Error: Argument for $1 is missing" >&2
@@ -168,7 +215,9 @@ while (( "$#" )); do
   esac
 done
 
-# Main script logic goes here
+#
+# Argument checks
+#
 if [[ $VERBOSE == 1 ]]; then
   echo "Verbose mode is enabled" >&2
 fi
@@ -192,7 +241,7 @@ fi
 
 # check service properties
 if [[ -z $PROPS_JSON_STRING ]]; then
-  echo "Error: Service properties J(-p, --props) required" >&2
+  echo "Error: Service properties (-p, --props) required" >&2
   exit 1
 fi
 if ! jq -e . >/dev/null 2>&1 <<<"$PROPS_JSON_STRING"; then
@@ -206,22 +255,27 @@ fi
 #
 if [[ $VERBOSE == 1 ]]; then
   if [[ -n $INPUT_FORMAT ]]; then
-    echo "Input format is set to $INPUT_FORMAT" >&2
+    echo "Input format is set to '$INPUT_FORMAT'" >&2
   fi
   if [[ -n $OUTPUT_FORMAT ]]; then
-    echo "Output format is set to $OUTPUT_FORMAT" >&2
-  fi
-  if [[ -n $SESSION_STATE_FILE ]]; then
-    echo "Session state file is set to $SESSION_STATE_FILE" >&2
-  fi
-  if [[ -n $AUTH_STRING ]]; then
-    echo "Authentication string is set to $AUTH_STRING" >&2
+    echo "Output format is set to '$OUTPUT_FORMAT'" >&2
   fi
   if [[ -n $PROPS_JSON_STRING ]]; then
-    echo "Properties JSON string is set to $PROPS_JSON_STRING" >&2
+    echo "Properties JSON string is set to '$PROPS_JSON_STRING'" >&2
+  fi
+  if [[ -n $SERVICE_ID ]]; then
+    echo "Service ID is set to '$SERVICE_ID'" >&2
+  fi
+  if [[ -n $CONVERSATION_STATE_FILE ]]; then
+    echo "Session/conversation state file is set to '$CONVERSATION_STATE_FILE'" >&2
+  fi
+  if [[ -n $AUTH_STRING ]]; then
+    # echom, but replace every char by a dot
+    AUTH_STRING_HIDDEN=$(sed -e 's/./*/g' <<<"$AUTH_STRING")
+    echo "Authentication string is set to '$AUTH_STRING_HIDDEN' (masked)" >&2
   fi
   if [[ -n $AISBREAKER_SERVER_URL ]]; then
-    echo "AIsBreaker server URL is set to $AISBREAKER_SERVER_URL" >&2
+    echo "AIsBreaker server URL is set to '$AISBREAKER_SERVER_URL'" >&2
   fi
 fi
 
@@ -315,56 +369,107 @@ elif [[ $INPUT_FORMAT == "text" ]]; then
     } ]
   }'
   INPUT_JSON=$(jq --arg content "$INPUT_TEXT" '.inputs[0].text.content = $content' <<<"$INPUT_JSON")
-  echo "Input TEXT as JSON: $INPUT_JSON" >&2
+  if [[ $VERBOSE == 1 ]]; then
+    echo "Input TEXT as JSON: $INPUT_JSON" >&2
+  fi
 fi
-# tune inputs: never use streaming
-INPUT_JSON=$(jq '.stream = false' <<<"$INPUT_JSON")
-# add converstation state if available
-# TODO
 
 #
-# action
-#
-
 # put all argument together to build a request
+#
+
+# set serviceId
+if [[ -n $SERVICE_ID ]]; then
+  # overwrite serviceId in props
+  PROPS_JSON_STRING=$(jq --arg serviceId "$SERVICE_ID" '.serviceId = $serviceId' <<<"$PROPS_JSON_STRING")
+fi
+# add conversationState if available
+if [[ -n $CONVERSATION_STATE_FILE ]] && [[ -f $CONVERSATION_STATE_FILE ]]; then
+  # CONVERSATION_STATE_FILE file exists
+  if [[ $VERBOSE == 1 ]]; then
+    echo "State file exists: $CONVERSATION_STATE_FILE" >&2
+  fi
+  # read from file
+  STATE=$(cat "$CONVERSATION_STATE_FILE")
+  if [[ -n $STATE ]]; then
+    # STATE is not empty
+    if [[ $VERBOSE == 1 ]]; then
+      echo "State before request (length): ${#STATE}" >&2
+    fi
+    # add state to input/request
+    INPUT_JSON=$(jq --arg state "$STATE" '.conversationState = $state' <<<"$INPUT_JSON")
+  fi
+fi
+# tune: never use streaming
+INPUT_JSON=$(jq '.stream = false' <<<"$INPUT_JSON")
+
+# create request JSON
 REQUEST='{
   "service": { },
   "request": { }
 }'
-# create request JSON
 REQUEST=$(jq --argjson serviceProps "$PROPS_JSON_STRING" '.service = $serviceProps' <<<"$REQUEST")
 REQUEST=$(jq --argjson inputs "$INPUT_JSON" '.request = $inputs' <<<"$REQUEST")
-echo "Request with: $REQUEST" >&2
+if [[ $VERBOSE == 1 ]]; then
+  echo "Request with: '$REQUEST'" >&2
+fi
 
-curl "${AISBREAKER_SERVER_URL}/api/v1/process" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -H "//Authorization: Bearer [YOUR_API_KEY]" \
-        -d "$REQUEST"
+# create authentication header
+if [[ -n $AUTH_STRING ]]; then
+  AUTH_HEADER_OPT1="--header"
+  AUTH_HEADER_OPT2="Authorization: Bearer $AUTH_STRING"
+fi
 
+#
+# do the HTTP request
+#
+RESPONSE=$(curl "${AISBREAKER_SERVER_URL}/api/v1/process" \
+        --request POST \
+        --silent \
+        --fail-with-body \
+        --header "Content-Type: application/json" \
+        --header "user-agent: aisbreakter.sh/$VERSION" \
+        ${AUTH_HEADER_OPT1} "${AUTH_HEADER_OPT2}" \
+        ${CURL_OPTS} \
+        --data "$REQUEST" \
+        )
+if [[ $VERBOSE == 1 ]]; then
+  echo "Response/OUTPUT(s): '$RESPONSE'" >&2
+fi
 
+# (optionally) save session/conversation state to file
+if [[ -n $CONVERSATION_STATE_FILE ]] ; then
+  # extract state from response
+  STATE=$(jq -r '.conversationState' <<<"$RESPONSE")
+  if [[ -n $STATE ]]; then
+    # STATE is not empty
+    if [[ $VERBOSE == 1 ]]; then
+      echo "State after response (length): ${#STATE}" >&2
+    fi
+    # save to file
+    echo "$STATE" > "$CONVERSATION_STATE_FILE"
+  fi
+fi
 
-exit 1
-
-curl "${URL}/api/v1/process" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -H "//Authorization: Bearer [YOUR_API_KEY]" \
-        -d '{
-
-  "service": {
-    "serviceId": "chat:dummy",
-    "//serviceId": "chat:openai.com",
-    "///serviceId": "chat:huggingface.co/microsoft/DialoGPT-large",
-    "////serviceId": "chat:huggingface.co/YOUR-HF-ACCOUNT/YOUR-HF-MODEL"
-  },
-
-  "request": {
-    "inputs": [ {
-      "text": {
-        "role": "user",
-        "content": "What is an AI? Please explain it to me."
-      }
-    } ]
-  }
-}'
+# (optionally) convert response to text
+if [[ $OUTPUT_FORMAT == "text" ]]; then
+  # convert response to text
+  if jq -e '.outputs[0].text.content' >/dev/null 2>&1 <<<"$RESPONSE"; then
+    # text exists
+    RESPONSE_TEXT=$(jq -r '.outputs[0].text.content' <<<"$RESPONSE")
+    if [[ $VERBOSE == 1 ]]; then
+      echo "Response as TEXT: $RESPONSE_TEXT" >&2
+    fi
+    # print response text to stdout
+    echo "$RESPONSE_TEXT"
+  else
+    # text does not exist - probably an error message
+    echo "Error: Response doesn't contain .outputs[0].text.content property" >&2
+    echo "Full Response: '$RESPONSE'" >&2
+    # keep and print response JSON to stdout
+    echo "$RESPONSE"
+  fi
+else
+  # keep and print response JSON to stdout
+  echo "$RESPONSE"
+fi
