@@ -1,4 +1,4 @@
-# aisbreakter.sh
+# aisbreaker.sh
 
 ## Introduction
 `aisbreaker.sh` is a tool to provide a simple commandline
