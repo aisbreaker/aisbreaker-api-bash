@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # basic settings
-VERSION="0.1.0"
+VERSION="0.1.1"
 
 # defaults
 DEFAULT_INPUT_FORMAT="text"
@@ -19,6 +19,27 @@ PROPS_JSON_STRING="${DEFAULT_PROPS_JSON_STRING}"
 AISBREAKER_SERVER_URL="${DEFAULT_AISBREAKER_SERVER_URL}"
 CURL_OPTS="${DEFAULT_CURL_OPTS}"
 
+
+# function to check for required tools and exit 1 in the case of an error
+function check_tools() {
+  ERROR=0
+
+  # check that tool curl is installed
+  if ! [ -x "$(command -v curl)" ]; then
+    echo 'Error: curl is not installed but required.' >&2
+    ERROR=1
+  fi
+  # check that tool jq is installed
+  if ! [ -x "$(command -v jq)" ]; then
+    echo 'Error: jq is not installed but required.' >&2
+    ERROR=1
+  fi
+
+  # exit?
+  if [[ $ERROR == 1 ]]; then
+    exit 1
+  fi
+}
 
 # function to display usage/help message
 function usage() {
@@ -67,20 +88,20 @@ function usage() {
   echo "  -v, --verbose            Enable verbose mode"
   echo "  -V, --version            Print script version"
 
-  # check that tool curl is installed
-  if ! [ -x "$(command -v curl)" ]; then
-    echo 'Error: curl is not installed but required.' >&2
-  fi
-  # check that tool jq is installed
-  if ! [ -x "$(command -v jq)" ]; then
-    echo 'Error: jq is not installed but required.' >&2
-  fi
+  # check for required tools
+  check_tools
+
   exit 1
 }
 
 # function to display version
 function version() {
+  # print version
   echo "Version: $0 $VERSION"
+
+  # check for required tools
+  check_tools
+
   exit 1
 }
 
@@ -279,16 +300,8 @@ if [[ $VERBOSE == 1 ]]; then
   fi
 fi
 
-# check that tool curl is installed
-if ! [ -x "$(command -v curl)" ]; then
-  echo 'Error: curl is not installed but required.' >&2
-  exit 1
-fi
-# check that tool jq is installed
-if ! [ -x "$(command -v jq)" ]; then
-  echo 'Error: jq is not installed but required.' >&2
-  exit 1
-fi
+# check for required tools
+check_tools
 
 #
 # read and check input
@@ -314,38 +327,13 @@ if [[ $INPUT_FORMAT == "json" ]]; then
     exit 1
   fi
   # check input JSON
-  if ! jq -e .prompt >/dev/null 2>&1 <<<"$INPUT_JSON"; then
-    echo "Error: Input JSON does not contain prompt" >&2
+  if ! jq -e .inputs[0].text.content >/dev/null 2>&1 <<<"$INPUT_JSON"; then
+    echo "Error: Input JSON does not contain a prompt (inputs[0].text.content)" >&2
     exit 1
   fi
   # check input JSON
-  if ! jq -e .serviceId >/dev/null 2>&1 <<<"$INPUT_JSON"; then
-    echo "Error: Input JSON does not contain serviceId" >&2
-    exit 1
-  fi
-  # check input JSON
-  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
-    echo "Error: Input JSON does not contain properties" >&2
-    exit 1
-  fi
-  # check input JSON
-  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
-    echo "Error: Input JSON does not contain properties" >&2
-    exit 1
-  fi
-  # check input JSON
-  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
-    echo "Error: Input JSON does not contain properties" >&2
-    exit 1
-  fi
-  # check input JSON
-  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
-    echo "Error: Input JSON does not contain properties" >&2
-    exit 1
-  fi
-  # check input JSON
-  if ! jq -e .properties >/dev/null 2>&1 <<<"$INPUT_JSON"; then
-    echo "Error: Input JSON does not contain properties" >&2
+  if ! jq -e .serviceId >/dev/null 2>&1 <<<"$PROPS_JSON_STRING"; then
+    echo "Error: props JSON does not contain serviceId" >&2
     exit 1
   fi
 elif [[ $INPUT_FORMAT == "text" ]]; then
