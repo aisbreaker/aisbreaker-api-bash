@@ -1,53 +1,122 @@
-# aisbreaker-api-bash
+# aisbreaker.sh
+
+## Introduction
+`aisbreaker.sh` is a tool to provide a simple commandline
+interface to generative AI services of [AIsBreaker.org](https://aisbreaker.org/),
+including OpenAI/ChatGPT, all Hugging Face AIs,
+Google Gemini AI, and more.
+
+For all UNIX-based systems with `bash`.
 
 
-Installation
-------------
+## Installation
+First make sure, that the tools `bash`, `curl` and `jq` are installed and in the PATH of your system.
 
-TO BE WRITTEN (download with curl)
+Then download `aisbreaker.sh`:
+```
+curl -s https://raw.githubusercontent.com/aisbreaker/aisbreaker-api-bash/main/aisbreaker.sh > ./aisbreaker.sh
+chmod a+x ./aisbreaker.sh
+```
+
+Finally check the script:
+```
+./aisbreaker.sh --version
+```
 
 
-Usage
------
+## Usage
 
-Get a detailled description:
+Get a tool description:
 ```
 ./aisbreaker.sh --help
 ```
 
 
-Minimal usage:
+### Minimal Usage
+Example:
 ```
 echo "What is Nodejs?" | ./aisbreaker.sh --service=chat:openai.com
 ```
 
-Typical usage:
+### Typical Usage
+Example with a conversation/state:
 ```
+# preparation
+STATEFILE=`mktemp ./aisbreaker-state-XXXXXXXX`; echo ${STATEFILE}
+
+# first prompt
 echo "What is Nodejs?" | ./aisbreaker.sh \
-  --verbose \
   --input=text \
-  --output=json \
+  --output=text \
   --service=chat:openai.com \
-  --session=/tmp/ais-session-1 \
-  --url=https://api.demo.aisbreaker.org 
+  --state=${STATEFILE} \
+  --url=https://api.demo.aisbreaker.org
+
+# second prompt in the same session
+echo "Shorter please" | ./aisbreaker.sh \
+  --input=text \
+  --output=text \
+  --service=chat:openai.com \
+  --state=${STATEFILE} \
+  --url=https://api.demo.aisbreaker.org
+
+# cleanup
+rm ${STATEFILE}
 ```
 
-Maximal usage:
-TO BE WRITTEN
+### Maximal Usage
+Example, with JSON input:
 ```
-echo "What is Nodejs?" | ./aisbreaker.sh \
+# preparation
+STATEFILE=`mktemp ./aisbreaker-state-XXXXXXXX`; echo ${STATEFILE}
+
+# system prompt and first user prompt, with JSON output
+cat <<EOF | ./aisbreaker.sh \
   --verbose \
-  --input=text \
+  --input=json \
   --output=json \
-  --session=./ais-session-1 \
-  '--props={"serviceId":"chat:openai.com"}' \
-  --url=https://api.demo.aisbreaker.org 
+  --service=chat:openai.com \
+  --state=${STATEFILE} \
+  --auth="sk-MyOwnOpenaiKey" \
+  --url=https://api.demo.aisbreaker.org
+{
+  "inputs": [{
+    "text": {
+      "role": "system",
+      "content": "Talk like a rapper!"
+    }
+  },
+  {
+    "text": {
+      "role": "user",
+      "content": "What is Nodejs?"
+    }
+  }]
+}
+EOF
+
+# second prompt in the same session, with text output
+cat <<EOF | ./aisbreaker.sh \
+  --input=json \
+  --output=text \
+  --service=chat:openai.com \
+  --state=${STATEFILE} \
+  --auth="sk-MyOwnOpenaiKey" \
+  --url=https://api.demo.aisbreaker.org
+{
+  "inputs": [{
+     "text": {
+      "role": "user",
+      "content": "Shorter please"
+    }
+  }]
+}
+EOF
 ```
 
 
 Features for Later
 ------------------
 Not implemented yet:
-* handling of (binary) input and output files (images, audios, videos)
-* ...
+* nice handling of (binary) input and output files (images, audios, videos)
 
