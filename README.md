@@ -1,8 +1,8 @@
 # aisbreakter.sh
 
 ## Introduction
-aisbreakter.sh is a tool to provide a simple commandline
-interface to generative AI services of AIsBreaker.org,
+`aisbreaker.sh` is a tool to provide a simple commandline
+interface to generative AI services of [AIsBreaker.org](https://aisbreaker.org/),
 including OpenAI/ChatGPT, all Hugging Face AIs,
 Google Gemini AI, and more.
 
