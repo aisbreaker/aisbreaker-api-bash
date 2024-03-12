@@ -21,7 +21,6 @@ chmod a+x ./aisbreaker.sh
 Finally check the script:
 ```
 ./aisbreaker.sh --version
-  # Version: ./aisbreaker.sh 0.1.1
 ```
 
 
