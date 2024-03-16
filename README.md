@@ -27,15 +27,14 @@ Finally check the script:
 
 
 ## Usage
-
-Get a tool description:
-```
-./aisbreaker.sh --help
-```
-
-Decide which [service(Id)](https://aisbreaker.org/docs/services) you want to use. The following examples all use `chat:openai.com`. By using a different serviceId you access a different AI service.
+Before start using the tool, you need to decide which generative AI service you want to use. On the [Services](https://aisbreaker.org/docs/services) page you find a list of available services and of their serviceIds. The following examples all use the serviceId `chat:openai.com`. By using a different serviceId you access a different AI service.
 
 In all examples below, we'll conveniently use the free `api.demo.aisbreaker.org` server. The server doesn't store any data or credentials. Feel free to install your own [AIsBreaker server](https://aisbreaker.org/docs/aisbreaker-server).
+
+To get a tool description run:
+```bash
+./aisbreaker.sh --help
+```
 
 
 ### Minimal Usage
